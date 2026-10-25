@@ -9,7 +9,7 @@ Images are published in the [official registry](https://github.com/home-assistan
 
 ## Local execution
 
-Requirements: Docker Engine with Linux containers, Compose v2, Python 3.14+ and `uv`. Windows: use Docker Desktop with WSL2/Linux. Initial image and package downloads need network access.
+Requirements: Docker Engine with Linux containers, Compose v2, Python 3.14.2–3.14.x and `uv`. Development and CI pin 3.14.9. Windows: use Docker Desktop with WSL2/Linux. Initial image and package downloads need network access.
 
 ```powershell
 uv sync --group dev --group container

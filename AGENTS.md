@@ -22,7 +22,7 @@ Always maintain this project's documentation in English, including README, archi
 
 ## Coding and Testing
 
-Use Python 3.14+, four-space indentation, type annotations, `snake_case` functions/modules and `PascalCase` classes. Domain code must not import HA, SQLAlchemy or Alembic. Application code uses ports for transactions and list mutations. Keep blocking SQL outside HA's event loop.
+Use Python 3.14.2–3.14.x; development and CI pin 3.14.9 in `.python-version`. Use four-space indentation, type annotations, `snake_case` functions/modules and `PascalCase` classes. Domain code must not import HA, SQLAlchemy or Alembic. Application code uses ports for transactions and list mutations. Keep blocking SQL outside HA's event loop.
 
 Test mechanics with controlled fixtures or injected fakes. Check real inputs for parsing, schema and consistency; never freeze production wording, record counts or editorial content in assertions. Keep corpus evaluations separate from unit tests. Never change production data to satisfy tests or test against production HA databases.
 

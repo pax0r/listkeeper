@@ -47,9 +47,21 @@ Final logs contain expected errors from deliberate invalid-confirmation and unau
 ## Checks requiring separate evidence
 
 - Other HA versions: only the exact stable and development builds listed above have been exercised.
-- In-process HA: package and Linux environment required for `tests/ha/`.
+- In-process HA: tracked separately from the real-container scenarios below; it requires the matching frontend package as well as the core fixture dependency.
 - PostgreSQL, MySQL and MariaDB: isolated servers and `SI_TEST_DATABASE_URL` required.
 - hassfest and HACS: jobs prepared; no local success claimed.
 - Browser rendering, interactions, themes and mobile layout: not verified by API or helper tests.
 
 The [API review](HA_API_REVIEW.md) records documentation/source inspection, which does not substitute for runtime verification. No GitHub/HACS publication has been performed from this workspace.
+
+## CI dependency bootstrap correction
+
+The reported GitHub run failed before executing tests: `requires-python = ">=3.14"` included Python 3.14.0/3.14.1, while current HA dependencies require at least 3.14.2. `uv` resolves all groups over the declared Python range, including the unselected `ha` group, so running Python 3.14.9 did not resolve that metadata contradiction.
+
+The project now declares `>=3.14.2,<3.15`, pins development/CI to Python 3.14.9 and uv 0.13.5, and includes a universal `uv.lock`. Every installation job uses `uv sync --locked`. The in-process HA group also includes the frontend version required by its pinned HA fixture target; otherwise HA setup fails with `No module named 'hass_frontend'` after dependency installation succeeds.
+
+A fresh Linux container, separate from the previously provisioned HA images, successfully resolved all groups, installed the locked `dev`/`container` environment, passed Ruff lint/format checks, and ran 66 passing tests with one explicit server-database skip. Five JavaScript tests also passed locally. This validates clean installation rather than relying on the earlier manually populated development environment.
+
+A separate clean Linux installation of `dev`/`ha` then passed both in-process integration tests: 2 passed in 0.56 seconds on Python 3.14.9, HA 2026.10.4, `pytest-homeassistant-custom-component` 0.13.375 and frontend 20260930.5. The final lockfile contains 173 resolved packages across all groups. The GitHub-hosted workflow itself has not been rerun from this workspace.
+
+Reproduction: `uv run python scripts/verify_ci_environment.py`, or add `--ha` for the in-process suite. Add `--update-lock` only when intentionally updating dependency metadata. The verifier uses an isolated Linux virtualenv and cache and does not replace the host development environment.

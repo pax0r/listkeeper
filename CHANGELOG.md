@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Align the project Python range with HA's minimum (`>=3.14.2,<3.15`), pin CI/development to Python 3.14.9 and uv 0.13.5, and lock dependency installation across all groups.
+- Include the matching HA frontend package in the in-process test environment; verify clean Linux installs for both ordinary and HA test groups.
+
 - English documentation, contributor guidance, technical messages and default panel language; retain explicit Polish localization.
 - Isolated Docker Compose integration tests, a `stable` / `dev` GitHub Actions matrix and weekly runs.
 - API scenarios covering purchases, aliases, deduplication, restarts, Options Flow, panel registration and authorization.
