@@ -1,10 +1,15 @@
 /** Local dictionaries; adding a language requires no panel changes. */
 export const dictionaries = {
   en: {
+    renameProduct: 'Rename main product', save: 'Save',
+    renameHelp: 'Correct the main name shown in the catalog and statistics. Original names and history are retained. The new spelling will also identify this product in future list entries.',
+    nameConflict: 'This name belongs to another product. Merge the products instead.',
+    onlyUnlinked: 'Without linked names', selectedProducts: 'Selected products', linkedNames: 'names',
+    groupCountsHint: 'Rows group all names of a product. Purchases here count confirmed events; the dashboard counts unique shopping days. Click column headings to sort.',
     currentList: 'Current list', listIsolation: 'Catalog, aliases, history, statistics and actions apply only to the selected list. Enable lists in the integration options.',
     noLists: 'No lists are enabled. Select lists in the integration options.',
     catalogHelp: 'How to organize names',
-    catalogInstructions: 'Select at least two names, then choose Merge selected. In the dialog choose the main name for their shared product. Selection is kept while searching. Use Actions → Move to product to assign one name to an existing product, or Separate to make it independent.',
+    catalogInstructions: 'Each row is one product. Expand it to inspect linked names and their actions. Select at least two products, then choose Merge selected and choose the main name. All linked names are included. Selection is kept while searching. Without linked names shows products with just one observed name; it does not prove they need merging. Click a column heading again to reverse sorting. Move to product and Separate act on one name inside a group.',
     dedupInstructions: 'Automatic deduplication keeps one list entry per product, preferring an active entry over completed entries. Case, spaces and accents are ignored (Mydło = mydlo). Other aliases must be linked manually. Purchase history is retained.',
     selection: 'Selected names', clearSelection: 'Clear selection', actions: 'Actions',
     mainName: 'Main product name', destinationProduct: 'Destination product', choose: 'Choose…',
@@ -34,10 +39,15 @@ export const dictionaries = {
     occurrenceSort: 'Fewest occurrences', purchaseSort: 'Most purchases', seenSort: 'Last observed',
   },
   pl: {
+    renameProduct: 'Zmień nazwę główną', save: 'Zapisz',
+    renameHelp: 'Popraw nazwę główną wyświetlaną w katalogu i statystykach. Oryginalne nazwy i historia pozostają zachowane. Nowa pisownia będzie też rozpoznawana przy przyszłych wpisach na liście.',
+    nameConflict: 'Ta nazwa należy już do innego produktu. Zamiast zmieniać nazwę, scal produkty.',
+    onlyUnlinked: 'Bez powiązanych nazw', selectedProducts: 'Zaznaczone produkty', linkedNames: 'nazw',
+    groupCountsHint: 'Wiersze grupują wszystkie nazwy produktu. Zakupy tutaj oznaczają potwierdzone zdarzenia; dashboard liczy unikalne dni zakupowe. Kliknij nagłówek kolumny, aby posortować.',
     currentList: 'Bieżąca lista', listIsolation: 'Katalog, aliasy, historia, statystyki i operacje dotyczą tylko wybranej listy. Włącz obsługę list w opcjach integracji.',
     noLists: 'Żadna lista nie jest włączona. Wybierz listy w opcjach integracji.',
     catalogHelp: 'Jak porządkować nazwy?',
-    catalogInstructions: 'Zaznacz co najmniej dwie nazwy i wybierz Scal zaznaczone. W oknie wybierz nazwę główną wspólnego produktu. Zaznaczenie pozostaje podczas wyszukiwania. Akcje → Przenieś do produktu przypisuje jedną nazwę do istniejącego produktu; Oddziel tworzy dla niej osobny produkt.',
+    catalogInstructions: 'Każdy wiersz to jeden produkt. Rozwiń go, aby zobaczyć powiązane nazwy i ich akcje. Zaznacz co najmniej dwa produkty, wybierz Scal zaznaczone i nazwę główną. Scalenie obejmuje wszystkie ich nazwy. Zaznaczenie pozostaje podczas wyszukiwania. Filtr Bez powiązanych nazw pokazuje produkty z jedną zaobserwowaną nazwą; nie oznacza to, że wymagają scalenia. Ponowne kliknięcie nagłówka odwraca sortowanie. Przenieś do produktu i Oddziel dotyczą jednej nazwy wewnątrz grupy.',
     dedupInstructions: 'Automatyczna deduplikacja zachowuje jeden wpis produktu na liście. Aktywny wpis ma pierwszeństwo przed odhaczonymi. Wielkość liter, odstępy i znaki diakrytyczne są pomijane (Mydło = mydlo). Inne aliasy trzeba połączyć ręcznie. Historia zakupów pozostaje zachowana.',
     selection: 'Zaznaczone nazwy', clearSelection: 'Wyczyść zaznaczenie', actions: 'Akcje',
     mainName: 'Główna nazwa produktu', destinationProduct: 'Produkt docelowy', choose: 'Wybierz…',

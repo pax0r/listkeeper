@@ -58,7 +58,7 @@ class CalendarAnalytics:
                     "purchases": sum(r["purchases"] for r in rows),
                     "products": len(rows),
                     "shopping_days": len(visible_days),
-                    "names": len(state.names),
+                    "names": sum(n.occurrences > 0 for n in state.names.values()),
                 },
                 "products": rows,
                 "frequency_scope": "all_history",
@@ -83,11 +83,17 @@ class GetProductCatalog:
                 rows.append(
                     {
                         **asdict(name),
+                        "last_seen": name.last_seen if name.occurrences else None,
                         "purchases": len(purchases),
                         "canonical_name": state.products[name.product_id].label,
                     }
                 )
-            rows.sort(key=lambda n: (n["occurrences"], -n["last_seen"].timestamp()))
+            rows.sort(
+                key=lambda n: (
+                    n["occurrences"],
+                    -(n["last_seen"].timestamp() if n["last_seen"] else 0),
+                )
+            )
             return portable(rows)
 
         return await self.uow.run(catalog)

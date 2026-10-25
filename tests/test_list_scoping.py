@@ -55,6 +55,21 @@ async def test_foreign_name_and_product_ids_cannot_be_moved_or_merged(sql, now):
     assert await second.run(lambda s: s) == b
 
 
+async def test_renaming_is_independent_and_rejects_a_foreign_product(sql, now):
+    from custom_components.pax0r_listkeeper.application.catalog import RenameProduct
+
+    first, second = ListUnitOfWork(sql, "todo.home"), ListUnitOfWork(sql, "todo.test")
+    await seed(first, "todo.home", now)
+    await seed(second, "todo.test", now)
+    first_id = await first.run(lambda s: next(iter(s.products)))
+    second_id = await second.run(lambda s: next(iter(s.products)))
+    await RenameProduct(first).execute(first_id, "Liquid soap", now)
+    assert await second.run(lambda s: s.products[second_id].label) == "Soap"
+    await RenameProduct(second).execute(second_id, "Liquid soap", now)
+    with pytest.raises(KeyError):
+        await RenameProduct(first).execute(second_id, "Changed", now)
+
+
 async def test_normalization_and_deduplication_do_not_cross_lists(sql, now):
     first, second = ListUnitOfWork(sql, "todo.home"), ListUnitOfWork(sql, "todo.test")
     home, testing = await seed(first, "todo.home", now), await seed(second, "todo.test", now)

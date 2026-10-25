@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Allow editing a product's main name with conflict checks, stable identity/history, approved future spelling and audit logs. Preserve edited destination labels in whole-product merges and maintain a valid source label when moving its main name.
+- Group catalog rows by canonical product with expandable names, whole-product merge selection, alias-aware search and a filter for products without linked names. Replace the catalog sort dropdown with reversible column-header buttons.
 - Add pinned pre-commit hooks for Ruff and file validation; CI uses the same configuration. Leave routine agent linting/formatting to hooks and CI.
 - Manage explicitly opted-in Shopping List and Local To-do entities with independent catalogs, aliases, history, statistics, exports and deletion. Add a persistent list context selector to the panel and scoped WebSocket commands.
 - Add schema revision `003` and config-entry version 2, retaining the original catalog and history during migration. Deselecting lists retains their data; an empty selection pauses processing.

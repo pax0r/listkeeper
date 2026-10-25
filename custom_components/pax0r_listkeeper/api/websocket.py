@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from homeassistant.components import websocket_api
 
-from ..application.catalog import MergeProductNames, MoveProductName
+from ..application.catalog import CatalogConflict, MergeProductNames, MoveProductName, RenameProduct
 from ..application.queries import (
     CalendarAnalytics,
     DeleteShoppingData,
@@ -40,12 +40,17 @@ async def dispatch(hass, runtime, action: str, message: dict):
         )
     if action == "merge_names":
         return await MergeProductNames(uow).execute(
-            message["name_ids"], message["target_name_id"], now
+            message["name_ids"],
+            message["target_name_id"],
+            now,
+            message.get("whole_products", False),
         )
     if action == "move_name":
         return await MoveProductName(uow).execute(
             message["name_id"], message.get("product_id"), now
         )
+    if action == "rename_product":
+        return await RenameProduct(uow).execute(message["product_id"], message["label"], now)
     if action == "export_data":
         return {"entity_id": runtime.adapter.entity_id, **await ExportShoppingData(uow).execute()}
     if action == "delete_data":
@@ -109,9 +114,15 @@ def make_handler(action: str, fields: dict):
                     )
                     return
                 result = await dispatch(hass, runtime, action, message)
-            if action in {"merge_names", "move_name", "delete_data", "refresh"}:
+            if action in {"merge_names", "move_name", "rename_product", "delete_data", "refresh"}:
                 await runtime.sync()
             connection.send_result(message["id"], {"api_version": 1, "data": result})
+        except CatalogConflict:
+            connection.send_error(
+                message["id"],
+                "name_conflict",
+                "This name belongs to another product; merge the products instead",
+            )
         except ValueError, KeyError:
             connection.send_error(message["id"], "invalid_input", "Invalid input or identifier")
         except Exception:
@@ -137,10 +148,15 @@ def register_commands(hass) -> None:
         "merge_names": {
             vol.Required("name_ids"): vol.All([identity], vol.Length(min=2, max=500)),
             vol.Required("target_name_id"): identity,
+            vol.Optional("whole_products", default=False): bool,
         },
         "move_name": {
             vol.Required("name_id"): identity,
             vol.Optional("product_id"): vol.Any(None, identity),
+        },
+        "rename_product": {
+            vol.Required("product_id"): identity,
+            vol.Required("label"): vol.All(str, vol.Length(min=1, max=500)),
         },
         "export_data": {},
         "delete_data": {vol.Required("confirmation"): "DELETE SHOPPING HISTORY"},

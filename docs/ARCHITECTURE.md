@@ -74,6 +74,10 @@ One config entry stores an opt-in `entity_ids` selection. A runtime collection c
 
 The panel retrieves enabled lists through `pax0r_listkeeper/get_lists` and sends `entity_id` with every contextual command. Multiple enabled lists require an explicit context; omitted context remains supported for exactly one enabled list. Unknown or opted-out entities are rejected. Export identifies its list explicitly. UI context changes clear selected IDs, pending dialogs and history pagination.
 
+The catalog groups name DTOs by stable product ID, showing canonical rows with expandable names. Group selection sends `merge_names` with `whole_products: true`; the use case expands selected products to all current names inside its transaction, including aliases observed after the panel loaded. Older clients can omit this flag to retain explicit name-only merging. Group totals are sums of name-level events/occurrences; dashboard counts remain unique purchase days. Column-header buttons sort grouped values in either direction.
+
+`rename_product` updates a product label and registers its spelling as an approved `ProductName` in the same transaction, rejecting matching names owned by other products in this context. Original name IDs and purchase records remain intact. New approved names have zero occurrences; catalog DTOs return a null last-occurrence date until observation, and the dashboard's observed-name count excludes them. Rename decisions use the existing durable operation log. Whole-product merging preserves the destination's canonical label; moving its main name chooses a remaining source name if needed.
+
 Entity IDs are scope identifiers in this release. Friendly-name changes do not affect ownership; entity-ID changes do. Deselecting a list removes its runtime/listeners without purging SQL. Empty selection starts no list runtimes. Unavailable configured entities can recover through their own retry/state listeners without suspending healthy lists.
 
 ## Transactions and recovery

@@ -85,7 +85,10 @@ async def test_alias_merge_split_and_future_matching(live_ha):
     target = next(n for n in names if n["name"] == "Papier toaletowy")
     other = next(n for n in names if n["name"] == "Papier WC")
     await client.app(
-        "merge_names", name_ids=[target["id"], other["id"]], target_name_id=target["id"]
+        "merge_names",
+        name_ids=[target["id"], other["id"]],
+        target_name_id=target["id"],
+        whole_products=True,
     )
     purchase_days = {
         datetime.fromisoformat(p["occurred_at"]).astimezone(ZoneInfo("Europe/Warsaw")).date()
@@ -104,6 +107,36 @@ async def test_alias_merge_split_and_future_matching(live_ha):
     assert {p["id"] for p in (await client.history())["events"]} == {
         p["id"] for p in history["events"]
     }
+
+
+async def test_rename_main_product_preserves_history_and_matches_corrected_name(live_ha):
+    ApiError, _, eventually = helpers()
+    client = live_ha.client
+    original_uid = await client.add("Bred")
+    await client.complete(original_uid)
+    history = await eventually(client.history, lambda h: h["total"] == 1, "original purchase")
+    original = next(n for n in await client.app("get_product_names") if n["name"] == "Bred")
+    await client.app("rename_product", product_id=original["product_id"], label="Bread")
+    names = await client.app("get_product_names")
+    corrected = next(n for n in names if n["name"] == "Bread")
+    assert corrected["product_id"] == original["product_id"]
+    assert corrected["occurrences"] == 0
+    assert corrected["last_seen"] is None
+    after = await client.history()
+    assert after["events"][0]["id"] == history["events"][0]["id"]
+    assert after["events"][0]["original_name"] == "Bred"
+    assert after["events"][0]["canonical_name"] == "Bread"
+    new_uid = await client.add("Bread")
+    items = await eventually(
+        client.items, lambda items: len(items) == 1, "corrected spelling deduplication"
+    )
+    assert items[0]["id"] == new_uid
+    await client.add("Other product")
+    other = next(n for n in await client.app("get_product_names") if n["name"] == "Other product")
+    with pytest.raises(ApiError) as conflict:
+        await client.app("rename_product", product_id=other["product_id"], label="BREAD")
+    assert conflict.value.code == "name_conflict"
+    assert (await client.history())["events"][0]["id"] == history["events"][0]["id"]
 
 
 async def test_unknown_names_rename_and_bulk_completion(live_ha):
