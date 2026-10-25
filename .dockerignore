@@ -1,0 +1,10 @@
+**
+!custom_components/
+!custom_components/pax0r_listkeeper/
+!custom_components/pax0r_listkeeper/**
+custom_components/**/__pycache__/
+!tests/
+!tests/containers/
+!tests/containers/image/
+!tests/containers/image/**
+**/__pycache__/

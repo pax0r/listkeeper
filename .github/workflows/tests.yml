@@ -1,0 +1,100 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+      - run: uv sync --group dev --group container
+      - run: uv run ruff check custom_components tests scripts
+      - run: uv run ruff format --check custom_components tests scripts
+      - run: uv run python scripts/check_structure.py
+      - run: uv run pytest --ignore=tests/ha --ignore=tests/containers -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: npm run check
+
+  databases:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: postgres:16
+            port: 5432
+            url: postgresql+psycopg2://test:test@127.0.0.1:5432/shopping_test
+            env: '-e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=shopping_test'
+            health: pg_isready -U test -d shopping_test
+          - image: mysql:8.4
+            port: 3306
+            url: mysql+pymysql://root:test@127.0.0.1:3306/shopping_test?charset=utf8mb4
+            env: '-e MYSQL_ROOT_PASSWORD=test -e MYSQL_DATABASE=shopping_test'
+            health: mysqladmin ping -ptest
+          - image: mariadb:11.4
+            port: 3306
+            url: mysql+pymysql://root:test@127.0.0.1:3306/shopping_test?charset=utf8mb4
+            env: '-e MARIADB_ROOT_PASSWORD=test -e MARIADB_DATABASE=shopping_test'
+            health: healthcheck.sh --connect --innodb_initialized
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+      - run: uv sync --group dev
+      - name: Start isolated SQL server
+        run: >-
+          docker run -d --name shopping-test
+          -p ${{ matrix.port }}:${{ matrix.port }}
+          ${{ matrix.env }}
+          --health-cmd='${{ matrix.health }}'
+          --health-interval=2s --health-timeout=5s --health-retries=60
+          ${{ matrix.image }}
+      - name: Wait for SQL
+        run: |
+          for attempt in $(seq 1 60); do
+            state=$(docker inspect --format '{{json .State.Health.Status}}' shopping-test)
+            if [ "$state" = '"healthy"' ]; then exit 0; fi
+            sleep 2
+          done
+          docker logs shopping-test
+          exit 1
+      - run: uv run pytest tests/test_database.py -q
+        env:
+          SI_TEST_DATABASE_URL: ${{ matrix.url }}
+
+  homeassistant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+      - run: uv sync --group dev --group ha
+      - run: uv run pytest tests/ha -q
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands

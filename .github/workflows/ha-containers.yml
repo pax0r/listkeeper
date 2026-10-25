@@ -1,0 +1,46 @@
+name: Home Assistant containers
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ha-containers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: HA ${{ matrix.channel }} integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [stable, dev]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+      - name: Install test runner
+        run: uv sync --group dev --group container
+      - name: Run isolated HA scenarios
+        run: >-
+          uv run python scripts/run_container_tests.py
+          --image ghcr.io/home-assistant/home-assistant:${{ matrix.channel }}
+          --project listkeeper-test-${{ matrix.channel }}
+      - name: Preserve test reports, HA version, image ID and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ha-${{ matrix.channel }}-results
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7

@@ -1,0 +1,28 @@
+services:
+  homeassistant:
+    build:
+      context: .
+      dockerfile: tests/containers/image/Dockerfile
+      args:
+        HA_IMAGE: ${HA_TEST_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}
+    labels:
+      io.pax0r.listkeeper.test-instance: "true"
+    environment:
+      TZ: Europe/Warsaw
+    ports:
+      - target: 8123
+        published: "${HA_TEST_PORT:-8124}"
+        host_ip: 127.0.0.1
+    volumes:
+      - ha_test_config:/config
+      - ./custom_components/pax0r_listkeeper:/config/custom_components/pax0r_listkeeper:ro
+    healthcheck:
+      test: ["CMD", "python", "/opt/listkeeper-tests/healthcheck.py"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 30s
+    stop_grace_period: 90s
+
+volumes:
+  ha_test_config:

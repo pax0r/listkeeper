@@ -1,0 +1,6 @@
+{
+  "name": "pax0r-listkeeper-panel",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test tests/frontend/*.test.js", "check": "node --check custom_components/pax0r_listkeeper/frontend/panel.js"}
+}

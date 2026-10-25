@@ -1,0 +1,20 @@
+{
+  "title": "pax0r's Listkeeper",
+  "config": {
+    "step": {"user": {
+      "title": "pax0r's Listkeeper",
+      "description": "Select the native Shopping List. Leave SQL URL blank to detect Recorder settings; SQLite always uses a separate file. Initialization requires table creation permissions (PostgreSQL: schema creation).",
+      "data": {"entity_id": "Shopping list", "deduplicate": "Automatic deduplication", "database_url": "Manual SQL URL (optional)", "reset_database_url": "Reset automatic SQL detection", "diagnostics": "Additional diagnostics"}
+    }},
+    "error": {"unsupported_list": "Select an available native Shopping List entity supporting stable UIDs.", "database_error": "Cannot initialize SQL. Check URL, driver, CREATE TABLE and CREATE SCHEMA permissions."},
+    "abort": {"already_configured": "The integration is already configured."}
+  },
+  "options": {
+    "step": {"init": {
+      "title": "pax0r's Listkeeper options",
+      "description": "An empty URL preserves the existing connection. Select reset to restore detection. Changing databases does not transfer history; export and back up SQL first.",
+      "data": {"entity_id": "Shopping list", "deduplicate": "Automatic deduplication", "database_url": "New SQL URL (hidden)", "reset_database_url": "Reset automatic SQL detection", "diagnostics": "Additional diagnostics"}
+    }},
+    "error": {"unsupported_list": "Select an available native Shopping List entity.", "database_error": "Check SQL connectivity and schema creation permissions."}
+  }
+}

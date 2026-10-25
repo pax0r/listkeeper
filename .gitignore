@@ -1,0 +1,13 @@
+.venv/
+.idea/
+.uv-cache/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.db
+*.db-wal
+*.db-shm
+.coverage
+htmlcov/
+.pytest-tmp*/
+test-results/
