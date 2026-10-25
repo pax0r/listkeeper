@@ -13,8 +13,8 @@ Requirements: Docker Engine with Linux containers, Compose v2, Python 3.14.2–3
 
 ```powershell
 uv sync --group dev --group container
-uv run python scripts/run_container_tests.py --project listkeeper-test-stable
-uv run python scripts/run_container_tests.py --image ghcr.io/home-assistant/home-assistant:dev --project listkeeper-test-dev
+uv run python -m tests.containers.run --project listkeeper-test-stable
+uv run python -m tests.containers.run --image ghcr.io/home-assistant/home-assistant:dev --project listkeeper-test-dev
 ```
 
 Defaults: `stable` image, port `8124`. Change the port with `--port 8125`. Each run requires a fresh Compose project. The runner removes its containers and configuration volume afterward. `--keep` retains them for inspection; another run needs a new project name.
@@ -27,7 +27,7 @@ docker compose -f compose.ha-test.yml -p listkeeper-test-dev down --volumes
 
 The runner accepts only `listkeeper-test` or names starting with `listkeeper-test-`, refusing existing containers or volumes. Never reuse a production project's name.
 
-After a forcefully interrupted run, `uv run python scripts/cleanup_test_stack.py listkeeper-test-dev` verifies test labels, saves logs and removes the owned stack. `scripts/inspect_test_runtime.py CONTAINER_NAME` prints non-secret native-list and SQL diagnostics only for explicitly marked test containers.
+After an interrupted run, inspect its logs with `docker compose -f compose.ha-test.yml -p listkeeper-test-dev logs homeassistant`, then use the cleanup command above for that test project.
 
 ## Scenarios
 

@@ -37,7 +37,7 @@ async def docker(*arguments: str) -> str:
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def ha_stack():
     if os.getenv("LISTKEEPER_CONTAINER_TEST") != "1":
-        pytest.skip("Use scripts/run_container_tests.py to start isolated HA")
+        pytest.skip("Use python -m tests.containers.run to start isolated HA")
     import aiohttp
 
     from .client import HaClient, eventually

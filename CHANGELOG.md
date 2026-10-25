@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the MIT license and document GitHub topics required for HACS publication.
+- Remove one-off bootstrap, validation and diagnostic scripts. Keep container orchestration under `tests/containers` and run repository checks through pytest.
+
+- Fix hassfest manifest ordering, rely on HA's own SQLAlchemy dependency, and declare config-entry-only configuration through HA's validation helper.
+
 - Align the project Python range with HA's minimum (`>=3.14.2,<3.15`), pin CI/development to Python 3.14.9 and uv 0.13.5, and lock dependency installation across all groups.
 - Include the matching HA frontend package in the in-process test environment; verify clean Linux installs for both ordinary and HA test groups.
 

@@ -15,10 +15,10 @@ Always maintain this project's documentation in English, including README, archi
 - `uv sync --group dev --group container`: install development and HTTP test dependencies.
 - `uv run pytest`: run available tests; external environments are explicitly skipped.
 - `uv run pytest --basetemp .pytest-tmp`: use workspace temporary files if needed.
-- `uv run ruff check custom_components tests scripts`: lint Python.
-- `uv run ruff format --check custom_components tests scripts`: check formatting.
+- `uv run ruff check custom_components tests`: lint Python.
+- `uv run ruff format --check custom_components tests`: check formatting.
 - `npm test` and `npm run check`: test frontend helpers and check syntax.
-- `uv run python scripts/run_container_tests.py`: run isolated HA integration tests.
+- `uv run python -m tests.containers.run`: run isolated HA integration tests.
 
 ## Coding and Testing
 

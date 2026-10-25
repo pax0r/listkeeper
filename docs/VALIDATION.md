@@ -10,7 +10,7 @@ October 25, 2026; Windows, Python 3.14.0, SQLAlchemy 2.0.54, Alembic 1.20.0, pyt
 | --- | --- |
 | `python -m pytest -q --basetemp .pytest-tmp-containers-4` | 65 passed, 13 environment-dependent skips |
 | Ruff lint and formatting | Passed |
-| `python scripts/check_structure.py` | Packaging, JSON and domain boundaries passed |
+| Resource parsing and domain-boundary checks | Passed; now included in `tests/test_repository.py` |
 | `npm test` | 4 passed |
 | `npm run check` | Passed |
 | `docker compose -f compose.ha-test.yml config --quiet` | Passed |
@@ -49,7 +49,7 @@ Final logs contain expected errors from deliberate invalid-confirmation and unau
 - Other HA versions: only the exact stable and development builds listed above have been exercised.
 - In-process HA: tracked separately from the real-container scenarios below; it requires the matching frontend package as well as the core fixture dependency.
 - PostgreSQL, MySQL and MariaDB: isolated servers and `SI_TEST_DATABASE_URL` required.
-- hassfest and HACS: jobs prepared; no local success claimed.
+- HACS: job prepared; no local success claimed. Official hassfest validation is recorded below.
 - Browser rendering, interactions, themes and mobile layout: not verified by API or helper tests.
 
 The [API review](HA_API_REVIEW.md) records documentation/source inspection, which does not substitute for runtime verification. No GitHub/HACS publication has been performed from this workspace.
@@ -64,4 +64,22 @@ A fresh Linux container, separate from the previously provisioned HA images, suc
 
 A separate clean Linux installation of `dev`/`ha` then passed both in-process integration tests: 2 passed in 0.56 seconds on Python 3.14.9, HA 2026.10.4, `pytest-homeassistant-custom-component` 0.13.375 and frontend 20260930.5. The final lockfile contains 173 resolved packages across all groups. The GitHub-hosted workflow itself has not been rerun from this workspace.
 
-Reproduction: `uv run python scripts/verify_ci_environment.py`, or add `--ha` for the in-process suite. Add `--update-lock` only when intentionally updating dependency metadata. The verifier uses an isolated Linux virtualenv and cache and does not replace the host development environment.
+The temporary verification wrapper has been removed. The corresponding CI commands remain `uv sync --locked --group dev --group container` and `uv sync --locked --group dev --group ha`, followed by their pytest jobs. Use `uv lock` only when intentionally updating dependency metadata.
+
+## Official hassfest validation
+
+Executed the official `ghcr.io/home-assistant/hassfest:latest` container, digest `sha256:e5828f7e305518506d8b4e8346411357d68358531b761bd118fe6a1631feff44`. Result: **1 integration, 0 invalid integrations**, with no configuration-schema warning. CI runs the official action directly; no local wrapper is required.
+
+The manifest now places `domain` and `name` first and sorts the remaining keys alphabetically. SQLAlchemy remains a standalone development dependency but is no longer listed as a custom integration requirement because HA already supplies it. `CONFIG_SCHEMA` delegates to HA's `config_entry_only_config_schema` helper; the import is deferred so pure domain tests do not require HA.
+
+The 66 available local Python tests passed after this change. A clean Linux `dev`/`ha` installation also passed both in-process HA tests in 0.55 seconds, including setup, WebSocket access and unload with the new schema declaration. Ruff lint/format and structure checks passed. The separately prepared HACS validator and GitHub-hosted workflow are not implied to have passed by the local hassfest result.
+
+## Cleanup and HACS publication metadata
+
+Removed one-off bootstrap, inspection, cleanup and validation wrappers. Repository resource checks now run in `tests/test_repository.py`; container orchestration lives in `tests/containers/run.py` and is invoked as `python -m tests.containers.run`. CI and documentation use those commands.
+
+After cleanup, 69 local Python tests and 5 JavaScript tests passed. The moved container runner executed all 11 scenarios successfully on HA 2026.10.4 in 8.51 seconds, then removed its container and configuration volume.
+
+Added the maintainer-approved MIT license. GitHub must receive that file on the default branch before its license API and HACS can recognize it. Repository topics must be set in GitHub's About settings; they cannot be provided by local manifest files. No authenticated GitHub management connection is available in this workspace, so topic changes and a full remote HACS rerun remain outstanding.
+
+HACS's missing-category warning is optional. The current official hassfest image rejected the newer `productivity_information.shopping_groceries` taxonomy entry; the optional field remains absent to keep the manifest compatible rather than bypassing validation.

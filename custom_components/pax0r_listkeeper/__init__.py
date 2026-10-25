@@ -3,6 +3,16 @@
 from .const import DOMAIN
 
 
+def _config_entry_only_schema(config: dict) -> dict:
+    """Use HA's schema helper lazily so domain imports do not require HA."""
+    from homeassistant.helpers import config_validation as cv
+
+    return cv.config_entry_only_config_schema(DOMAIN)(config)
+
+
+CONFIG_SCHEMA = _config_entry_only_schema
+
+
 async def async_setup(hass, config) -> bool:
     from .api.websocket import register_commands
 

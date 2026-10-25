@@ -26,9 +26,13 @@ Basic setup requires no YAML. HA/HACS may download the Python requirements from 
 
 After publishing the repository, add `https://github.com/pax0r/listkeeper` under **HACS → Custom repositories**, category **Integration**. Install, restart and configure as above. The repository contains `hacs.json` and the required directory layout; these do not automatically publish it in HACS's default catalog. HACS and hassfest jobs are included in CI.
 
+For HACS publication checks, commit [LICENSE](LICENSE) to the default branch and set GitHub repository topics, for example `home-assistant`, `hacs` and `custom-integration`, using the gear next to **About** on the repository page. Topics are GitHub settings; adding text to `hacs.json` or README does not set them.
+
 ## Database configuration
 
 An isolated adapter attempts to discover Recorder's URL. Listkeeper creates independent SQLAlchemy engines and sessions. Missing configuration falls back to separate SQLite; manual server URLs are supported.
+
+SQLAlchemy is supplied by HA itself and is intentionally absent from the custom integration's manifest requirements. The standalone development project still declares it for database and domain tests.
 
 | Backend | Isolation | Required permissions |
 | --- | --- | --- |
@@ -76,25 +80,25 @@ Use Python 3.14.2–3.14.x, Node.js 22+ and isolated databases. Development and 
 ```powershell
 uv sync --group dev --group container
 uv run pytest
-uv run ruff check custom_components tests scripts
-uv run ruff format --check custom_components tests scripts
+uv run ruff check custom_components tests
+uv run ruff format --check custom_components tests
 npm test
 npm run check
 ```
 
 `uv.lock` records all dependency groups. CI installs with `uv sync --locked`; after changing dependencies, run `uv lock` and commit the updated lockfile. `uv` resolves every group, including `ha`, even when it installs only `dev` and `container`. Therefore the declared Python range must satisfy HA's minimum of 3.14.2; simply selecting a newer interpreter in CI does not fix an incompatible project range.
 
-The integration executes inside HA and uses HA's interpreter; do not install a separate Python runtime on HA OS for it. Host-side HTTP/WebSocket tests run outside HA and may use another compatible patch version. In-process HA tests must satisfy the installed HA package's Python requirement. To reproduce clean Linux dependency installation locally, run `uv run python scripts/verify_ci_environment.py`; add `--ha` for in-process HA tests.
+The integration executes inside HA and uses HA's interpreter; do not install a separate Python runtime on HA OS for it. Host-side HTTP/WebSocket tests run outside HA and may use another compatible patch version. In-process HA tests must satisfy the installed HA package's Python requirement.
 
-For restricted temporary directories use `uv run pytest --basetemp .pytest-tmp`. `scripts/use_cached_dependencies.ps1` is an optional bootstrap for already cached packages.
+For restricted temporary directories use `uv run pytest --basetemp .pytest-tmp`. Resource parsing and domain-boundary checks run as ordinary pytest tests in `tests/test_repository.py`. Official hassfest validation runs directly in GitHub Actions.
 
 In-process HA tests on Linux: `uv sync --group dev --group ha`, then `uv run pytest tests/ha`. The HA group pins the fixture package and the frontend release required by HA 2026.10.4; update this pair together when changing that test target. Server SQL tests require `SI_TEST_DATABASE_URL` pointing to an **empty isolated test database**. PostgreSQL, MySQL and MariaDB jobs are in `.github/workflows/tests.yml`.
 
 Real HA process, API and restart tests:
 
 ```powershell
-uv run python scripts/run_container_tests.py --project listkeeper-test-stable
-uv run python scripts/run_container_tests.py --image ghcr.io/home-assistant/home-assistant:dev --project listkeeper-test-dev
+uv run python -m tests.containers.run --project listkeeper-test-stable
+uv run python -m tests.containers.run --image ghcr.io/home-assistant/home-assistant:dev --project listkeeper-test-dev
 ```
 
 `.github/workflows/ha-containers.yml` runs both channels and uploads JUnit, HA version, image ID and logs. Each run owns a configuration volume. See [container testing](docs/CONTAINER_TESTS.md) and [actual validation results](docs/VALIDATION.md).
@@ -110,3 +114,7 @@ The current code passed all 11 real-container scenarios on HA `2026.10.4` and `2
 - Later: additional deterministic matchers, median intervals and trends through the analytics port. Recommendations, fuzzy matching, AI, inventory, receipts and barcodes are outside this MVP.
 
 See [architecture](docs/ARCHITECTURE.md) and [changelog](CHANGELOG.md).
+
+## License
+
+This repository is distributed under the [MIT License](LICENSE). Third-party dependencies retain their own licenses.
