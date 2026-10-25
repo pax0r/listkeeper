@@ -30,12 +30,12 @@ async def test_new_uid_replaces_old_without_purchase(memory, shopping, now, old,
     assert shopping.removed == ["old"]
 
 
-async def test_unrelated_names_and_offline_ambiguity_are_safe(memory, shopping, now):
+async def test_baseline_duplicates_removed_but_unrelated_names_are_safe(memory, shopping, now):
     shopping.set("a", "Milk")
     shopping.set("b", "Mlik")
     shopping.set("c", "Milk")
     await reconcile(memory, shopping, now)
-    assert len(shopping.items) == 3
+    assert {i.uid for i in shopping.items} == {"b", "c"}
     assert len(memory.state.products) == 2
 
 
@@ -45,7 +45,7 @@ async def test_state_notification_before_add_event_preserves_new_uid(memory, sho
     shopping.set("new", "Milk")
     # The generic state event persists an item without reliable addition order.
     await reconcile(memory, shopping, now + timedelta(seconds=1), trusted=True)
-    assert len(shopping.items) == 2
+    assert [i.uid for i in shopping.items] == ["new"]
     # Its native add event arrives after that transaction has already committed.
     await reconcile(memory, shopping, now + timedelta(seconds=2), trusted=True, added_uid="new")
     assert [i.uid for i in shopping.items] == ["new"]
@@ -170,7 +170,7 @@ async def test_multiple_duplicates_converge_and_self_events_do_not_loop(memory, 
     for _ in range(5):
         await reconcile(memory, shopping, now, trusted=True)
     assert [i.uid for i in shopping.items] == ["new"]
-    assert event_count == 3
+    assert event_count == 1
     assert not memory.state.purchases
 
 
@@ -186,3 +186,43 @@ async def test_pending_delete_invalidated_by_user_change(memory, shopping, now):
     await reconcile(memory, shopping, now, trusted=True)
     assert len(shopping.items) == 2
     assert next(iter(memory.state.deduplications.values())).status == "superseded"
+
+
+@pytest.mark.parametrize(
+    "statuses", [(True, True, True), (True, False, True), (False, False, False)]
+)
+async def test_existing_duplicates_collapse_in_one_pass(memory, shopping, now, statuses):
+    for uid, completed in zip(("a", "b", "c"), statuses, strict=True):
+        shopping.set(uid, "Mydło" if uid == "a" else "MYDLO", completed)
+    await reconcile(memory, shopping, now)
+    assert len(shopping.items) == 1
+    assert shopping.items[0].completed == all(statuses)
+    assert len(shopping.removed) == 2
+    assert not memory.state.purchases
+    await reconcile(memory, shopping, now)
+    assert len(shopping.removed) == 2
+
+
+async def test_existing_accent_variants_join_without_rewriting_history(sql, shopping, now):
+    def seed(state):
+        from custom_components.pax0r_listkeeper.domain.models import Product, ProductName, Purchase
+
+        for identity, label in (("a", "Mydło"), ("b", "mydlo")):
+            state.products[identity] = Product(identity, label)
+            state.names[identity] = ProductName(identity, identity, label, label.casefold(), 1, now)
+            state.purchases[identity] = Purchase(
+                identity, identity, label, "list", identity, now, "confirmed", "live", identity
+            )
+
+    await sql.run(seed)
+    shopping.set("a", "Mydło", True)
+    shopping.set("b", "mydlo", True)
+    await ReconcileShoppingList(sql, shopping, "list").execute(now)
+    state = await sql.run(lambda state: state)
+    assert set(state.names) == {"a", "b"}
+    assert len({n.product_id for n in state.names.values()}) == 1
+    assert {n.name for n in state.names.values()} == {"Mydło", "mydlo"}
+    assert len(state.merges) == 1
+    assert set(state.purchases) == {"a", "b"}
+    assert {p.original_name for p in state.purchases.values()} == {"Mydło", "mydlo"}
+    assert len(shopping.items) == 1

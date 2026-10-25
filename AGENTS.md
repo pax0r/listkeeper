@@ -15,9 +15,8 @@ Always maintain this project's documentation in English, including README, archi
 - `uv sync --group dev --group container`: install development and HTTP test dependencies.
 - `uv run pytest`: run available tests; external environments are explicitly skipped.
 - `uv run pytest --basetemp .pytest-tmp`: use workspace temporary files if needed.
-- `uv run ruff check custom_components tests`: lint Python.
-- `uv run ruff format --check custom_components tests`: check formatting.
-- `npm test` and `npm run check`: test frontend helpers and check syntax.
+- `uv run pre-commit install`: install automatic checks before commits (once per clone).
+- `npm test`: test frontend behavior. CI also checks JavaScript syntax.
 - `uv run python -m tests.containers.run`: run isolated HA integration tests.
 
 ## Coding and Testing
@@ -27,6 +26,8 @@ Use Python 3.14.2–3.14.x; development and CI pin 3.14.9 in `.python-version`. 
 Test mechanics with controlled fixtures or injected fakes. Check real inputs for parsing, schema and consistency; never freeze production wording, record counts or editorial content in assertions. Keep corpus evaluations separate from unit tests. Never change production data to satisfy tests or test against production HA databases.
 
 ## Contributions and Agent Instructions
+
+Leave routine linting and formatting to pre-commit hooks and CI. Do not run Ruff, formatters, syntax-only checks or the full pre-commit suite manually during ordinary agent work unless the user explicitly requests it or a reported hook/CI failure requires investigation. Continue running relevant behavioral and integration tests after code changes. CI runs the same pre-commit configuration across all files.
 
 Use concise imperative commit subjects. Describe behavior, relevant issues, validation, migration effects and limitations in PRs. Include screenshots for panel changes when available. Never report unexecuted checks as successful.
 

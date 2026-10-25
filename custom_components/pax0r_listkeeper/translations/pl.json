@@ -3,18 +3,18 @@
   "config": {
     "step": {"user": {
       "title": "pax0r's Listkeeper",
-      "description": "Wybierz natywną listę zakupów. Puste połączenie SQL oznacza wykrywanie Recordera; SQLite zawsze korzysta z osobnego pliku. Inicjalizacja wymaga praw tworzenia tabel (PostgreSQL: schematu).",
-      "data": {"entity_id": "Lista zakupów", "deduplicate": "Automatyczne usuwanie duplikatów", "database_url": "Ręczny URL SQL (opcjonalnie)", "reset_database_url": "Przywróć automatyczne wykrywanie SQL", "diagnostics": "Dodatkowa diagnostyka"}
+      "description": "Wybierz tylko listy, które Listkeeper ma obsługiwać. Wspierane są Shopping List i Local To-do. Każda lista ma osobny katalog i historię. Puste połączenie SQL oznacza wykrywanie Recordera; SQLite korzysta z osobnego pliku.",
+      "data": {"entity_ids": "Listy do obsługi (opt-in)", "deduplicate": "Automatyczne usuwanie duplikatów", "database_url": "Ręczny URL SQL (opcjonalnie)", "reset_database_url": "Przywróć automatyczne wykrywanie SQL", "diagnostics": "Dodatkowa diagnostyka"}
     }},
-    "error": {"unsupported_list": "Wybierz dostępną natywną encję Shopping List z obsługą UID.", "database_error": "Nie można przygotować SQL. Sprawdź URL, sterownik oraz prawa CREATE TABLE i CREATE SCHEMA (PostgreSQL)."},
+    "error": {"unsupported_list": "Wybierz dostępne listy Shopping List lub Local To-do z obsługą UID, usuwania i powiadomień o zmianach.", "database_error": "Nie można przygotować SQL. Sprawdź URL, sterownik oraz prawa CREATE TABLE i CREATE SCHEMA (PostgreSQL)."},
     "abort": {"already_configured": "Integracja jest już skonfigurowana."}
   },
   "options": {
     "step": {"init": {
       "title": "Opcje pax0r's Listkeeper",
-      "description": "Pusty URL zachowuje dotychczasowe połączenie. Zaznacz reset, aby wrócić do wykrywania. Zmiana bazy nie przenosi historii; najpierw wykonaj eksport i kopię SQL.",
-      "data": {"entity_id": "Lista zakupów", "deduplicate": "Automatyczne usuwanie duplikatów", "database_url": "Nowy URL SQL (ukryty)", "reset_database_url": "Przywróć automatyczne wykrywanie SQL", "diagnostics": "Dodatkowa diagnostyka"}
+      "description": "Obsługiwane są wyłącznie zaznaczone listy. Odznaczenie zatrzymuje obsługę i zachowuje dane. Pusty URL zachowuje połączenie SQL; reset przywraca wykrywanie. Zmiana bazy nie przenosi historii.",
+      "data": {"entity_ids": "Listy do obsługi (opt-in)", "deduplicate": "Automatyczne usuwanie duplikatów", "database_url": "Nowy URL SQL (ukryty)", "reset_database_url": "Przywróć automatyczne wykrywanie SQL", "diagnostics": "Dodatkowa diagnostyka"}
     }},
-    "error": {"unsupported_list": "Wybierz dostępną natywną encję Shopping List.", "database_error": "Sprawdź połączenie SQL i uprawnienia do tworzenia struktury."}
+    "error": {"unsupported_list": "Wybierz dostępne listy Shopping List lub Local To-do z wymaganymi możliwościami.", "database_error": "Sprawdź połączenie SQL i uprawnienia do tworzenia struktury."}
   }
 }

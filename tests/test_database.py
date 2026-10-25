@@ -69,7 +69,7 @@ def test_upgrade_from_v1_and_repeat_without_data_loss(tmp_path):
         )
         assert (
             connection.scalar(text("SELECT version_num FROM pax0r_listkeeper_alembic_version"))
-            == "002"
+            == "003"
         )
         indexes = inspect(connection).get_indexes("pax0r_listkeeper_purchase_events")
         assert any(i["column_names"] == ["name_id", "occurred_at"] for i in indexes)

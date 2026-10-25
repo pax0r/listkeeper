@@ -22,6 +22,7 @@ def helpers():
         ("Mleko 3%", "Mleko 3%"),
         ("Mleko 3%", "MLEKO 3%"),
         ("  Papier   WC ", "papier wc"),
+        ("Mydło", "mydlo"),
     ],
 )
 async def test_event_deduplication_preserves_new_uid(live_ha, first, second):
@@ -154,6 +155,128 @@ async def test_options_disable_deduplication(live_ha):
         await client.set_deduplication(True)
 
 
+@pytest.mark.parametrize(
+    "statuses", [(True, True, True), (True, False, True), (False, False, False)]
+)
+async def test_existing_duplicates_cleaned_on_reload(live_ha, statuses):
+    _, _, eventually = helpers()
+    client = live_ha.client
+    await client.set_deduplication(False)
+    try:
+        for name, completed in zip(("Mydło", "mydlo", "MYDŁO"), statuses, strict=True):
+            uid = await client.add(name)
+            if completed:
+                await client.complete(uid)
+        await client.app("refresh")
+        before = await client.history()
+        assert len(await client.items()) == 3
+    finally:
+        await client.set_deduplication(True)
+    items = await eventually(
+        client.items, lambda items: len(items) == 1, "existing duplicate cleanup"
+    )
+    assert items[0]["complete"] == all(statuses)
+    assert (await client.history())["events"] == before["events"]
+
+
+async def test_multiple_local_lists_are_opt_in_and_independent(live_ha):
+    ApiError, _, eventually = helpers()
+    client = live_ha.client
+    for title in ("Listkeeper test tasks", "Listkeeper excluded tasks"):
+        await client.flow("local_todo", {"todo_list_name": title})
+    states = await eventually(
+        lambda: client.ws("get_states"),
+        lambda states: sum(s["entity_id"].startswith("todo.") for s in states) >= 3,
+        "local to-do entities",
+    )
+    local = next(
+        s["entity_id"]
+        for s in states
+        if s["attributes"].get("friendly_name") == "Listkeeper test tasks"
+    )
+    excluded = next(
+        s["entity_id"]
+        for s in states
+        if s["attributes"].get("friendly_name") == "Listkeeper excluded tasks"
+    )
+    try:
+        await client.set_managed_lists([client.entity_id, local])
+        # Multiple lists require explicit context, including read-only queries.
+        with pytest.raises(ApiError, match="invalid_input"):
+            await client.ws("pax0r_listkeeper/get_dashboard", api_version=1)
+        primary_uid = await client.add("Soap")
+        await client.todo_service(local, "add_item", item="Soap")
+        local_items = await eventually(lambda: client.todo_items(local), bool, "local item")
+        local_uid = local_items[0]["uid"]
+        await client.todo_service(local, "update_item", item=local_uid, status="completed")
+        history = await eventually(
+            lambda: client.app("get_purchase_history", entity_id=local),
+            lambda h: h["total"] == 1,
+            "local purchase",
+        )
+        assert (await client.history())["total"] == 0
+        # Rename a completed task: active count stays zero, requiring item updates.
+        await client.todo_service(local, "update_item", item=local_uid, rename="Hand soap")
+        await eventually(
+            lambda: client.app("get_product_names", entity_id=local),
+            lambda names: any(n["name"] == "Hand soap" for n in names),
+            "completed task rename notification",
+        )
+        # Restore the exact duplicate identity, then add another active entry.
+        await client.todo_service(local, "update_item", item=local_uid, rename="Soap")
+        await client.todo_service(local, "add_item", item="SOAP")
+        local_items = await eventually(
+            lambda: client.todo_items(local),
+            lambda items: len(items) == 1 and items[0]["status"] == "needs_action",
+            "local UID deduplication",
+        )
+        assert local_items[0]["uid"] != local_uid
+        assert [i["id"] for i in await client.items()] == [primary_uid]
+        assert (await client.app("get_purchase_history", entity_id=local))["events"] == history[
+            "events"
+        ]
+        home_names = await client.app("get_product_names")
+        local_names = await client.app("get_product_names", entity_id=local)
+        assert {n["id"] for n in home_names}.isdisjoint(n["id"] for n in local_names)
+        with pytest.raises(ApiError, match="invalid_input"):
+            await client.app(
+                "move_name", name_id=home_names[0]["id"], product_id=local_names[0]["product_id"]
+            )
+        exported = await client.app("export_data")
+        assert all(i["list_id"] == client.entity_id for i in exported["data"]["items"].values())
+        await client.app("delete_data", entity_id=local, confirmation="DELETE SHOPPING HISTORY")
+        assert (await client.app("get_purchase_history", entity_id=local))["total"] == 0
+        assert await client.app("get_product_names") == home_names
+        # An unselected list retains even exact duplicates.
+        for _ in range(2):
+            await client.todo_service(excluded, "add_item", item="Soap")
+        await client.app("refresh")
+        assert len(await client.todo_items(excluded)) == 2
+        assert excluded not in {item["entity_id"] for item in await client.app("get_lists")}
+        # Opting out removes listeners and API access, but retains the catalog.
+        before = await client.app("get_product_names", entity_id=local)
+        await client.set_managed_lists([client.entity_id])
+        await client.todo_service(local, "add_item", item="Soap")
+        await client.app("refresh")
+        assert len(await client.todo_items(local)) == 2
+        with pytest.raises(ApiError, match="invalid_input"):
+            await client.app("get_product_names", entity_id=local)
+        await client.set_managed_lists([client.entity_id, local])
+        await eventually(
+            lambda: client.todo_items(local),
+            lambda items: len(items) == 1,
+            "re-enabled list cleanup",
+        )
+        assert {n["id"] for n in await client.app("get_product_names", entity_id=local)} == {
+            n["id"] for n in before
+        }
+        await client.set_managed_lists([])
+        assert await client.app("get_lists") == []
+        assert len(await client.todo_items(excluded)) == 2
+    finally:
+        await client.set_managed_lists([client.entity_id])
+
+
 async def test_panel_assets_schema_and_single_instance(live_ha):
     client = live_ha.client
     panels = await client.ws("get_panels")
@@ -164,7 +287,7 @@ async def test_panel_assets_schema_and_single_instance(live_ha):
         assert content.strip()
     diagnostics = await client.app("get_diagnostics")
     assert diagnostics["database_backend"] == "sqlite"
-    assert diagnostics["schema_version"] == "002"
+    assert diagnostics["schema_version"] == "003"
     duplicate = await client.request(
         "POST", "/api/config/config_entries/flow", payload={"handler": "pax0r_listkeeper"}
     )

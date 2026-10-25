@@ -18,6 +18,8 @@ def upgrade(engine, revision: str = "head") -> None:
             connection.execute(CreateSchema("pax0r_listkeeper", if_not_exists=True))
         config.attributes["connection"] = connection
         command.upgrade(config, revision)
+        if revision != "head":
+            return  # Historical schemas need not match the current ORM.
         # Empty statements verify DML grants without creating or changing records.
         for table in Base.metadata.sorted_tables:
             connection.execute(select(table).limit(0))

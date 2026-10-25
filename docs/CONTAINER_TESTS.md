@@ -40,9 +40,10 @@ After an interrupted run, inspect its logs with `docker compose -f compose.ha-te
 7. Purchase event IDs surviving a real container restart, entry reload and item deletion.
 8. Options Flow disabling and re-enabling deduplication.
 9. Panel registration, local frontend modules, schema version and singleton enforcement.
+10. Multiple Local To-do lists: explicit context, independent names/history/export/deletion, item notifications for completed renames, opt-out protection, re-enabling retained data and empty opt-in selection.
 10. Invalid deletion confirmation, unauthorized reads/mutations, anonymous requests and panel visibility for ordinary users.
 
-Deduplication parameterization gives 11 cases. Controlled-time unit tests cover the 60/61-minute boundary and complex SQL failures; container tests do not wait an hour or modify HA's clock.
+The suite includes case/space/accent matching and existing completed-only, active-only and mixed-status duplicate cleanup after Options Flow reload. Controlled-time unit tests cover the 60/61-minute boundary and complex SQL failures; container tests do not wait an hour or modify HA's clock.
 
 ## Isolation and reproducibility
 

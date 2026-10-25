@@ -14,6 +14,7 @@ class ProductRow(Base):
     __tablename__ = PREFIX + "products"
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     label: Mapped[str] = mapped_column(Text)
+    scope: Mapped[str] = mapped_column(String(100), default="", server_default="", index=True)
 
 
 class NameRow(Base):

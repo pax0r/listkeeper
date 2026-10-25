@@ -8,6 +8,7 @@ from custom_components.pax0r_listkeeper.domain.matching import (
     DuplicateResolver,
     ExactMatcher,
     Match,
+    matching_key,
     normalize,
 )
 from custom_components.pax0r_listkeeper.domain.models import ProductName, Snapshot
@@ -52,9 +53,21 @@ def test_composite_rejects_conflicting_matchers():
     assert CompositeMatcher(Constant("a"), Constant("b")).match("x", []).product_id is None
 
 
-def test_unknown_newer_item_prevents_removal(now):
+def test_unknown_newer_item_uses_observation_order(now):
     old = Snapshot("a", "list", "a", "name", "Milk", False, True, 0, 0, now, 1)
     offline = Snapshot(
         "b", "list", "b", "name", "Milk", False, True, 0, 0, now + timedelta(days=1), None
     )
-    assert DuplicateResolver().resolve([old, offline]) is None
+    assert DuplicateResolver().resolve([old, offline]) == (offline, [old])
+
+
+@pytest.mark.parametrize(
+    "left,right", [("Mydło", "mydlo"), ("ŻÓŁĆ", "zolc"), ("ŚĆŃĄĘŹ", "scnaez"), ("Café", "cafe")]
+)
+def test_accent_insensitive_matching(left, right):
+    assert matching_key(left) == matching_key(right)
+
+
+def test_matching_keeps_quantities_and_units():
+    assert matching_key("Mydło 100g") != matching_key("mydlo 200g")
+    assert matching_key("Milk 2%") != matching_key("milk 3%")

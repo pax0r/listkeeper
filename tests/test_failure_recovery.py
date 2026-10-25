@@ -46,6 +46,22 @@ async def test_crash_after_external_delete_before_sql_ack(memory, shopping, now)
     assert next(iter(memory.state.deduplications.values())).status == "done"
 
 
+async def test_completed_batch_resumes_after_first_delete_before_ack(memory, shopping, now):
+    for uid in ("a", "b", "c", "d"):
+        shopping.set(uid, "Soap", True)
+    shopping.on_remove = lambda: setattr(memory, "fail", True)
+    with pytest.raises(ConnectionError):
+        await ReconcileShoppingList(memory, shopping, "list").execute(now)
+    assert len(shopping.items) == 3
+    memory.fail = False
+    shopping.on_remove = None
+    await ReconcileShoppingList(memory, shopping, "list").execute(now)
+    assert [i.uid for i in shopping.items] == ["d"]
+    assert len(shopping.removed) == 3
+    assert all(o.status == "done" for o in memory.state.deduplications.values())
+    assert not memory.state.purchases
+
+
 async def test_completed_duplicate_purchase_survives_removal(memory, shopping, now):
     reconcile = ReconcileShoppingList(memory, shopping, "list")
     shopping.set("a")

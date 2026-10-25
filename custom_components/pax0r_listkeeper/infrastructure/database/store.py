@@ -89,7 +89,10 @@ class SqlUnitOfWork:
                                 raise ValueError("A timezone-aware timestamp is required")
                             data[key] = data[key].astimezone(UTC).isoformat()
                     if model is NameRow:
-                        data["normalized_hash"] = sha256(data["normalized"].encode()).hexdigest()
+                        product = state.products.get(record.product_id)
+                        scope = product.scope if product else ""
+                        key = scope + "\0" + data["normalized"] if scope else data["normalized"]
+                        data["normalized_hash"] = sha256(key.encode()).hexdigest()
                     row = rows[attribute].get(identity)
                     if row is None:
                         session.add(model(**data))

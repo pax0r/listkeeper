@@ -85,6 +85,8 @@ class HaClient:
                     return response.get("result")
 
     async def app(self, action: str, **fields):
+        if action != "get_lists" and self.entity_id:
+            fields.setdefault("entity_id", self.entity_id)
         result = await self.ws(f"{DOMAIN}/{action}", api_version=1, **fields)
         if result.get("api_version") != 1:
             raise ApiError(action, "unsupported_api_version")
@@ -133,7 +135,7 @@ class HaClient:
         await self.flow(
             self.entry_id,
             {
-                "entity_id": self.entity_id,
+                "entity_ids": [self.entity_id],
                 "deduplicate": enabled,
                 "database_url": "",
                 "reset_database_url": False,
@@ -150,6 +152,41 @@ class HaClient:
                 and d["error"] is None
             ),
             "options reload",
+        )
+
+    async def set_managed_lists(self, entity_ids: list[str]):
+        await self.flow(
+            self.entry_id,
+            {
+                "entity_ids": entity_ids,
+                "deduplicate": True,
+                "database_url": "",
+                "reset_database_url": False,
+                "diagnostics": True,
+            },
+            options=True,
+        )
+        await eventually(
+            lambda: self.app("get_lists"),
+            lambda lists: {item["entity_id"] for item in lists} == set(entity_ids),
+            "opted-in list configuration",
+        )
+        for entity_id in entity_ids:
+            await eventually(
+                lambda selected=entity_id: self.app("get_diagnostics", entity_id=selected),
+                lambda d: d["last_sync"] is not None and d["error"] is None,
+                "selected list synchronization",
+            )
+
+    async def todo_items(self, entity_id: str):
+        return (await self.ws("todo/item/list", entity_id=entity_id))["items"]
+
+    async def todo_service(self, entity_id: str, service: str, **fields):
+        return await self.ws(
+            "call_service",
+            domain="todo",
+            service=service,
+            service_data={"entity_id": entity_id, **fields},
         )
 
     async def token_from_code(self, code: str) -> str:

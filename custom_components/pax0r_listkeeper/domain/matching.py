@@ -11,6 +11,12 @@ def normalize(name: str) -> str:
     return " ".join(unicodedata.normalize("NFC", name).casefold().split())
 
 
+def matching_key(name: str) -> str:
+    """Fold accents for matching while retaining original catalog identities."""
+    decomposed = unicodedata.normalize("NFD", normalize(name).replace("ł", "l"))
+    return "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
+
+
 @dataclass(frozen=True)
 class Match:
     product_id: str | None
@@ -23,7 +29,7 @@ class ProductMatcher(Protocol):
 
 class ExactMatcher:
     def match(self, name: str, names: list[ProductName]) -> Match:
-        matches = {n.product_id for n in names if n.normalized == normalize(name)}
+        matches = {n.product_id for n in names if matching_key(n.name) == matching_key(name)}
         return (
             Match(next(iter(matches)), "normalized_exact")
             if len(matches) == 1
@@ -50,15 +56,13 @@ class CompositeMatcher:
 
 
 class DuplicateResolver:
-    """Only delete when observation order identifies an unambiguous new item."""
+    """Keep one item per identity, preferring an outstanding shopping task."""
 
     def resolve(self, items: list[Snapshot]) -> tuple[Snapshot, list[Snapshot]] | None:
-        ordered = [i for i in items if i.added_order is not None]
-        if len(items) < 2 or not ordered:
+        if len(items) < 2:
             return None
-        newest = max(ordered, key=lambda i: i.added_order)
-        if newest.completed or any(
-            i.added_order is None and i.first_seen > newest.first_seen for i in items
-        ):
-            return None
+        candidates = [i for i in items if not i.completed] or items
+        # Observation time is not a claim about an offline item's creation time.
+        # UID provides a repeatable tie-break for pre-existing baseline items.
+        newest = max(candidates, key=lambda i: (i.first_seen, i.added_order or -1, i.uid))
         return newest, [i for i in items if i.id != newest.id]

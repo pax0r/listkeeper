@@ -40,7 +40,12 @@ def ws_handler(monkeypatch):
     monkeypatch.setitem(sys.modules, "homeassistant", ModuleType("homeassistant"))
     monkeypatch.setitem(sys.modules, "homeassistant.components", components)
     compat = ModuleType("custom_components.pax0r_listkeeper.compat")
-    compat.vol = SimpleNamespace(Required=lambda key: key, Optional=lambda key, **kwargs: key)
+    compat.vol = SimpleNamespace(
+        Required=lambda key: key,
+        Optional=lambda key, **kwargs: key,
+        All=lambda *args: args,
+        Length=lambda **kwargs: kwargs,
+    )
     monkeypatch.setitem(sys.modules, compat.__name__, compat)
     name = "custom_components.pax0r_listkeeper.api.websocket"
     path = Path(__file__).parents[1] / "custom_components/pax0r_listkeeper/api/websocket.py"
@@ -52,6 +57,8 @@ def ws_handler(monkeypatch):
 
     async def dispatch(hass, runtime, action, message):
         calls.append(action)
+        if hasattr(runtime, "context"):
+            calls.append(runtime.context)
         return {"ok": True}
 
     monkeypatch.setattr(module, "dispatch", dispatch)
@@ -80,3 +87,32 @@ async def test_nonadmin_rejected_before_scheduling_any_work(ws_handler):
         handler(SimpleNamespace(data={}), connection, {"id": 1})
     assert not tasks
     assert not calls
+
+
+@pytest.mark.parametrize(
+    "context,expected",
+    [(None, []), ("todo.unknown", []), ("todo.test", ["get_dashboard", "todo.test"])],
+)
+async def test_multilist_commands_require_a_selected_enabled_context(ws_handler, context, expected):
+    from custom_components.pax0r_listkeeper.infrastructure.ha.collection import RuntimeCollection
+
+    handler, tasks, calls = ws_handler
+    collection = RuntimeCollection.__new__(RuntimeCollection)
+    collection.stopping = False
+    collection.runtimes = {
+        key: SimpleNamespace(stopping=False, gate=asyncio.Lock(), context=key)
+        for key in ("todo.home", "todo.test")
+    }
+    errors, results = [], []
+    connection = SimpleNamespace(
+        user=SimpleNamespace(is_admin=True),
+        send_error=lambda *args: errors.append(args),
+        send_result=lambda *args: results.append(args),
+    )
+    message = {"id": 1, **({"entity_id": context} if context else {})}
+    handler(SimpleNamespace(data={"pax0r_listkeeper": collection}), connection, message)
+    await asyncio.gather(*tasks)
+    assert calls == expected
+    assert bool(results) == bool(expected)
+    if not expected:
+        assert errors[0][1] == "invalid_input"

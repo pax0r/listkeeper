@@ -29,31 +29,35 @@ async def async_setup_entry(hass, entry) -> bool:
     from homeassistant.exceptions import ConfigEntryNotReady
     from homeassistant.helpers.event import async_track_state_change_event
 
+    from .application.scoping import claim_legacy_data
     from .const import ASSET_URL, PANEL_PATH
     from .infrastructure.database.store import SqlUnitOfWork
+    from .infrastructure.ha.collection import RuntimeCollection
     from .infrastructure.ha.database_config import database_url
-    from .infrastructure.ha.runtime import Runtime
     from .infrastructure.ha.shopping_list import NativeShoppingList
 
     settings = {**entry.data, **entry.options}
-    adapter = NativeShoppingList(hass, settings["entity_id"])
+    selected = settings.get("entity_ids", [settings.get("entity_id", "todo.shopping_list")])
+    adapters = {entity_id: NativeShoppingList(hass, entity_id) for entity_id in selected}
     uow = None
     try:
-        await adapter.read()
+        for adapter in adapters.values():
+            adapter.entity(require_available=False)
         url = database_url(hass, settings.get("database_url", ""))
         uow = await hass.async_add_executor_job(SqlUnitOfWork, url)
         await hass.async_add_executor_job(uow.initialize)
+        legacy = settings.get("legacy_entity_id", settings.get("entity_id"))
+        await claim_legacy_data(uow, legacy)
     except Exception:
         if uow:
             await uow.close()
         raise ConfigEntryNotReady(
-            "Cannot start the integration. Check the native list, SQL connection and permissions."
+            "Cannot start the integration. Check selected lists, SQL connection and permissions."
         ) from None
-    runtime = Runtime(
+    runtime = RuntimeCollection(
         hass,
         uow,
-        adapter,
-        settings["entity_id"],
+        adapters,
         settings.get("deduplicate", True),
         settings.get("diagnostics", False),
     )
@@ -71,20 +75,29 @@ async def async_setup_entry(hass, entry) -> bool:
             webcomponent_name="pax0r-listkeeper-panel",
             sidebar_title="pax0r's Listkeeper",
             sidebar_icon="mdi:cart-outline",
-            module_url=ASSET_URL + "/panel.js?v=0.1.0",
+            module_url=ASSET_URL + "/panel.js?v=0.2.0",
             require_admin=True,
         )
 
-        @callback
-        def changed(event):
-            runtime.changed(event)
+        from types import SimpleNamespace
 
-        runtime.unsubscribers.extend(
-            [
-                hass.bus.async_listen("shopping_list_updated", changed),
-                async_track_state_change_event(hass, [settings["entity_id"]], changed),
-            ]
-        )
+        for entity_id, child in runtime.runtimes.items():
+
+            @callback
+            def changed(event, target=child):
+                target.changed(event)
+
+            @callback
+            def items_changed(_items, target=child):
+                target.changed(SimpleNamespace(data={}))
+
+            child.unsubscribers.append(adapters[entity_id].subscribe(items_changed))
+            child.unsubscribers.append(async_track_state_change_event(hass, [entity_id], changed))
+            from homeassistant.helpers import entity_registry as er
+
+            registered = er.async_get(hass).async_get(entity_id)
+            if registered and registered.platform == "shopping_list":
+                child.unsubscribers.append(hass.bus.async_listen("shopping_list_updated", changed))
 
         async def stop(_event):
             await runtime.close()
@@ -104,6 +117,19 @@ async def async_setup_entry(hass, entry) -> bool:
 
 async def _updated(hass, entry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_migrate_entry(hass, entry) -> bool:
+    """Preserve ownership of the original catalog when enabling multiple lists."""
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        settings = {**entry.data, **entry.options}
+        original = settings.get("entity_id", "todo.shopping_list")
+        data = {**entry.data, "entity_ids": [original], "legacy_entity_id": original}
+        options = {**entry.options, "entity_ids": [original]}
+        hass.config_entries.async_update_entry(entry, data=data, options=options, version=2)
+    return True
 
 
 async def async_unload_entry(hass, entry) -> bool:

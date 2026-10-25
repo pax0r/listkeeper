@@ -18,15 +18,15 @@ concurrency:
 jobs:
   integration:
     name: HA ${{ matrix.channel }} integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
         channel: [stable, dev]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.14.9'
           version: '0.13.5'
@@ -39,7 +39,7 @@ jobs:
           --project listkeeper-test-${{ matrix.channel }}
       - name: Preserve test reports, HA version, image ID and logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ha-${{ matrix.channel }}-results
           path: test-results/

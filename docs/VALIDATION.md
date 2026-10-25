@@ -83,3 +83,51 @@ After cleanup, 69 local Python tests and 5 JavaScript tests passed. The moved co
 Added the maintainer-approved MIT license. GitHub must receive that file on the default branch before its license API and HACS can recognize it. Repository topics must be set in GitHub's About settings; they cannot be provided by local manifest files. No authenticated GitHub management connection is available in this workspace, so topic changes and a full remote HACS rerun remain outstanding.
 
 HACS's missing-category warning is optional. The current official hassfest image rejected the newer `productivity_information.shopping_groceries` taxonomy entry; the optional field remains absent to keep the manifest compatible rather than bypassing validation.
+
+## Running HACS validation locally
+
+The official action can run through Docker. It checks the published GitHub repository and its metadata, not uncommitted files in the working directory. Push file changes before using it to verify those changes. GitHub topics must be configured in the repository's **About → settings → Topics**, for example `home-assistant`, `hacs` and `custom-integration`.
+
+Provide a GitHub token through the existing `INPUT_GITHUB_TOKEN` environment variable using your local credential tooling; do not put it in source files, command arguments or shared logs. The current image reads that variable even though its missing-token error misleadingly names `GITHUB_TOKEN`. No write permission is needed for repository validation; comments are disabled below.
+
+Run from PowerShell:
+
+```powershell
+docker run --rm `
+  -e INPUT_GITHUB_TOKEN `
+  -e INPUT_CATEGORY=integration `
+  -e INPUT_REPOSITORY=pax0r/listkeeper `
+  -e REPOSITORY_REF=main `
+  -e INPUT_IGNORE=brands `
+  -e INPUT_COMMENT=false `
+  ghcr.io/hacs/action:main
+```
+
+This keeps the same ignored check as CI; license and topics remain enabled. The action uses GitHub APIs and therefore requires network access, independently of the integration's entirely local operation. See the [official action documentation](https://hacs.xyz/docs/publish/action/).
+
+Local execution on 2026-10-25 successfully downloaded and started image digest `sha256:187499a09c5d41f9f0d42ff80d203ed87b974c028290140913b61e005fb0aab2`, but stopped before validation because no GitHub token was available. No local HACS success is claimed. The maintainer's latest CI log confirms license validation passed and topics was the sole failing check.
+
+## Catalog UX and existing duplicate cleanup
+
+After changing survivor selection, accent matching and catalog dialogs, the ordinary local suite passed **81 Python tests**, with 17 explicit environment-dependent skips (15 container cases, the HA module and the external SQL server test). All **8 JavaScript tests**, JS syntax checking and Ruff lint/format checks passed. SQLite coverage includes linking pre-existing accent variants while retaining both name IDs and purchase events. Failure recovery includes a completed-only batch interrupted after external deletion and before SQL acknowledgement.
+
+The first real HA run passed 14 cases and failed completed-only cleanup: the native adapter still rejected a completed survivor. The adapter now accepts completed-to-completed deletion while rejecting removal of an active task in favor of a completed survivor. The final complete run passed **15 cases in 13.05 seconds on HA 2026.10.4**, including accent matching, existing completed/active/mixed groups after reload and unchanged history. Reports are under `test-results/listkeeper-test-dedup-final/`; the runner removed its container, network and configuration volume afterward.
+
+Frontend tests exercise explicit main-name selection, per-row move destinations, cancellation and selection persistence across filtering using injected DOM controls. Browser rendering, focus behavior, themes and mobile layout remain unverified. This change has not been rerun against development HA or server SQL engines.
+
+## Independent opt-in lists and commit hooks
+
+The latest ordinary suite passed **92 Python tests**, with 18 explicit skips (16 container cases, the in-process HA module and the external SQL server test). **11 JavaScript tests** passed. Coverage includes independent identical names/UIDs, scoped deletion and export, rejection of foreign name/product IDs, legacy catalog/config-entry migration, Local To-do locking and unpublished calendar edits, context switches and stale frontend responses.
+
+Final full container runs passed all **16 cases** on each target:
+
+| Target | HA version | Result | Reports |
+| --- | --- | --- | --- |
+| Stable | 2026.10.4 | 16 passed in 16.48 seconds | `test-results/listkeeper-test-context-stable/` |
+| Development | 2026.11.0.dev202610250226 | 16 passed in 15.67 seconds | `test-results/listkeeper-test-context-dev/` |
+
+Both runs include native Shopping List plus two Local To-do entities, opted-out duplicate preservation, context-specific history/catalog/export/deletion, completed-task rename notifications, re-enabling retained data and an empty opt-in selection. Both test stacks were removed afterward. An earlier run exposed a test-client issue: an unconfigured non-admin client sent an empty entity ID, triggering schema validation before authorization. The client now omits unknown context instead of sending an invalid identifier.
+
+Official hassfest passed with **1 integration, 0 invalid integrations** after the multi-list/config-flow changes. The optional category field remains absent because of the validator compatibility issue recorded above. Browser rendering, server SQL engines and GitHub-hosted execution of the updated workflows have not been verified by these runs.
+
+CI now pins Ubuntu 24.04 and uses Node 24 versions of checkout, setup-node, setup-uv and upload-artifact. `.pre-commit-config.yaml` pins Ruff and file validation hooks; CI invokes that same configuration. The dependency lock was regenerated with Python 3.14.9 and contains 182 packages. After the maintainer requested hook-owned linting, no manual linter suite was run. Hook configuration validation passed; the hook suite itself has not been executed here. Installing the local Git hook was blocked by sandbox permissions on `.git/hooks/pre-commit`; a developer must run `uv run pre-commit install` in their writable checkout.

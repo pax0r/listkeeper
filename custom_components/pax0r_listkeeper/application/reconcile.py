@@ -4,7 +4,7 @@ import asyncio
 from collections import defaultdict
 from datetime import datetime
 
-from ..domain.matching import CompositeMatcher, DuplicateResolver, normalize
+from ..domain.matching import CompositeMatcher, DuplicateResolver, matching_key, normalize
 from ..domain.models import ListItem, Operation, Product, ProductName, Snapshot, State, new_id
 from .history import CorrectPurchase, RecordPurchase
 from .ports import ShoppingList, UnitOfWork
@@ -17,9 +17,16 @@ def observe_name(state: State, name: str, at: datetime) -> ProductName:
     found = next((n for n in state.names.values() if n.normalized == normalized), None)
     if found:
         return found
-    product = Product(new_id(), name)
-    state.products[product.id] = product
-    found = ProductName(new_id(), product.id, name, normalized, 0, at)
+    equivalent = next(
+        (n for n in state.names.values() if matching_key(n.name) == matching_key(name)), None
+    )
+    if equivalent:
+        product_id = equivalent.product_id
+    else:
+        product = Product(new_id(), name)
+        state.products[product.id] = product
+        product_id = product.id
+    found = ProductName(new_id(), product_id, name, normalized, 0, at)
     state.names[found.id] = found
     return found
 
@@ -80,6 +87,28 @@ class ReconcileShoppingList:
                 raise ValueError("The list contains duplicate UIDs")
 
             def reconcile(state: State) -> list[Operation]:
+                # Upgrade existing catalogs without rewriting name or purchase IDs.
+                identities = {}
+                for name in sorted(state.names.values(), key=lambda n: n.id):
+                    key = matching_key(name.name)
+                    target_name = identities.setdefault(key, name)
+                    source, target = name.product_id, target_name.product_id
+                    if source != target:
+                        affected = [n for n in state.names.values() if n.product_id == source]
+                        operation = Operation(
+                            new_id(),
+                            "normalize_names",
+                            at,
+                            {
+                                "before": {n.id: source for n in affected},
+                                "after": target,
+                                "basis": "accent_insensitive",
+                            },
+                            "done",
+                        )
+                        state.merges[operation.id] = operation
+                        for linked in affected:
+                            linked.product_id = target
                 baseline = self.list_id not in state.initialized_lists
                 known = {i.uid: i for i in state.items.values() if i.list_id == self.list_id}
                 present = {i.uid for i in current}
@@ -171,16 +200,19 @@ class ReconcileShoppingList:
                                 "keeper": asdict(
                                     ListItem(keeper.uid, keeper.name, keeper.completed)
                                 ),
-                                "expected": expected,
+                                "expected": expected.copy(),
                                 "basis": (
                                     "normalized_exact"
                                     if normalize(victim.name) == normalize(keeper.name)
+                                    else "accent_insensitive"
+                                    if matching_key(victim.name) == matching_key(keeper.name)
                                     else "approved_alias"
                                 ),
                             },
                         )
                         state.deduplications[operation.id] = operation
                         pending.append(operation)
+                        expected = [i for i in expected if i["uid"] != victim.uid]
                 return pending
 
             operations = await self.uow.run(reconcile)

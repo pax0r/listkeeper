@@ -15,10 +15,17 @@ def schema(defaults: dict):
     return vol.Schema(
         {
             vol.Required(
-                "entity_id", default=defaults.get("entity_id", "todo.shopping_list")
+                "entity_ids",
+                default=defaults.get(
+                    "entity_ids", [defaults.get("entity_id", "todo.shopping_list")]
+                ),
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(
-                    filter={"domain": "todo", "integration": "shopping_list"}
+                    filter=[
+                        {"domain": "todo", "integration": provider}
+                        for provider in ("shopping_list", "local_todo")
+                    ],
+                    multiple=True,
                 )
             ),
             vol.Required("deduplicate", default=defaults.get("deduplicate", True)): bool,
@@ -32,7 +39,14 @@ def schema(defaults: dict):
 
 
 async def validate(hass, data: dict) -> dict:
-    await NativeShoppingList(hass, data["entity_id"]).read()
+    selected = data.get("entity_ids", [])
+    if len(set(selected)) != len(selected):
+        raise UnsupportedList("Select distinct supported lists")
+    for entity_id in selected:
+        adapter = NativeShoppingList(hass, entity_id)
+        await adapter.read()
+        if not callable(getattr(adapter.entity(), "async_subscribe_updates", None)):
+            raise UnsupportedList("The list does not support item subscriptions")
     url = database_url(hass, data.get("database_url", ""))
     uow = await hass.async_add_executor_job(SqlUnitOfWork, url)
     try:
@@ -43,7 +57,7 @@ async def validate(hass, data: dict) -> dict:
 
 
 class Pax0rListkeeperFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(self, user_input=None):
         await self.async_set_unique_id(DOMAIN)

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add pinned pre-commit hooks for Ruff and file validation; CI uses the same configuration. Leave routine agent linting/formatting to hooks and CI.
+- Manage explicitly opted-in Shopping List and Local To-do entities with independent catalogs, aliases, history, statistics, exports and deletion. Add a persistent list context selector to the panel and scoped WebSocket commands.
+- Add schema revision `003` and config-entry version 2, retaining the original catalog and history during migration. Deselecting lists retains their data; an empty selection pauses processing.
+- Subscribe to item changes, including completed-task renames that leave the active count unchanged. Preserve Local To-do entries with conflicting due dates or descriptions.
+- Pin CI runners to Ubuntu 24.04 and update checkout, setup-node, setup-uv and artifact actions to versions using Node 24.
+- Replace global merge/move selectors with explicit dialogs, a selection toolbar, per-row actions and expandable catalog instructions in English and Polish.
+- Clean existing completed-only and mixed-status duplicate groups, preferring an active survivor and retaining purchase history. Delete multiple duplicates in one validated batch.
+- Match accent variants such as `Mydło` / `mydlo`, automatically linking existing catalog identities with audit records while preserving original names and purchase IDs.
 - Add the MIT license and document GitHub topics required for HACS publication.
 - Remove one-off bootstrap, validation and diagnostic scripts. Keep container orchestration under `tests/containers` and run repository checks through pytest.
 

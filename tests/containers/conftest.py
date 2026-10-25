@@ -79,7 +79,7 @@ async def ha_stack():
         result = await client.flow(
             "pax0r_listkeeper",
             {
-                "entity_id": client.entity_id,
+                "entity_ids": [client.entity_id],
                 "deduplicate": True,
                 "database_url": "",
                 "reset_database_url": False,

@@ -48,7 +48,7 @@ async def test_config_flow_panel_websocket_and_unload(hass, hass_ws_client):
         DOMAIN,
         context={"source": "user"},
         data={
-            "entity_id": entity_id,
+            "entity_ids": [entity_id],
             "deduplicate": True,
             "database_url": "",
             "diagnostics": True,

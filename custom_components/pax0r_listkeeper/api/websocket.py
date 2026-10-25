@@ -47,7 +47,7 @@ async def dispatch(hass, runtime, action: str, message: dict):
             message["name_id"], message.get("product_id"), now
         )
     if action == "export_data":
-        return await ExportShoppingData(uow).execute()
+        return {"entity_id": runtime.adapter.entity_id, **await ExportShoppingData(uow).execute()}
     if action == "delete_data":
         await DeleteShoppingData(uow).execute(message["confirmation"])
         # Next reconciliation creates a baseline without touching HA content.
@@ -59,8 +59,8 @@ async def dispatch(hass, runtime, action: str, message: dict):
             "error": runtime.error,
             "deduplicate": runtime.reconcile.deduplicate,
             "entity_id": runtime.adapter.entity_id,
-            "database_backend": uow.engine.dialect.name,
-            "schema_version": "002",
+            "database_backend": runtime.database_backend,
+            "schema_version": "003",
             "retention": "indefinite",
         }
         if runtime.diagnostics:
@@ -83,6 +83,7 @@ def make_handler(action: str, fields: dict):
         {
             vol.Required("type"): f"{DOMAIN}/{action}",
             vol.Optional("api_version", default=1): 1,
+            vol.Optional("entity_id"): vol.All(str, vol.Length(min=1, max=100)),
             **fields,
         }
     )
@@ -94,6 +95,13 @@ def make_handler(action: str, fields: dict):
             connection.send_error(message["id"], "not_loaded", "The integration is not loaded")
             return
         try:
+            if hasattr(runtime, "runtimes"):
+                if action == "get_lists":
+                    connection.send_result(
+                        message["id"], {"api_version": 1, "data": runtime.lists()}
+                    )
+                    return
+                runtime = runtime.select(message.get("entity_id"))
             async with runtime.gate:
                 if runtime.stopping:
                     connection.send_error(
@@ -117,6 +125,7 @@ def make_handler(action: str, fields: dict):
 def register_commands(hass) -> None:
     identity = vol.All(str, vol.Length(min=1, max=100))
     commands = {
+        "get_lists": {},
         "get_dashboard": {vol.Optional("days"): vol.Any(None, 30, 90)},
         "get_products": {},
         "get_product_names": {},

@@ -22,6 +22,7 @@ class ListItem:
 class Product:
     id: str
     label: str
+    scope: str = ""
 
 
 @dataclass

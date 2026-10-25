@@ -71,11 +71,12 @@ def set_items(entity, *items):
     ]
 
 
-async def test_uid_collision_with_name_does_not_delete_wrong_item(ha_modules):
+@pytest.mark.parametrize("completed", [False, True])
+async def test_uid_collision_with_name_does_not_delete_wrong_item(ha_modules, completed):
     hass, entity, _ = ha_modules
     victim, keeper, collision = (
-        ListItem("a", "Milk", False),
-        ListItem("b", "milk", False),
+        ListItem("a", "Milk", completed),
+        ListItem("b", "milk", completed),
         ListItem("c", "a", False),
     )
     set_items(entity, collision, victim, keeper)
@@ -83,6 +84,51 @@ async def test_uid_collision_with_name_does_not_delete_wrong_item(ha_modules):
     expected = await adapter.read()
     assert await adapter.remove_if_unchanged(victim, keeper, expected)
     assert {i.uid for i in await adapter.read()} == {"b", "c"}
+
+
+async def test_adapter_never_removes_active_item_for_completed_survivor(ha_modules):
+    hass, entity, _ = ha_modules
+    victim, keeper = ListItem("a", "Milk", False), ListItem("b", "milk", True)
+    set_items(entity, victim, keeper)
+    adapter = NativeShoppingList(hass, "todo.shopping_list")
+    assert not await adapter.remove_if_unchanged(victim, keeper, await adapter.read())
+    assert len(await adapter.read()) == 2
+
+
+async def test_local_todo_lock_and_metadata_guard(ha_modules):
+    hass, entity, registry = ha_modules
+    registry.platform = "local_todo"
+    entity._calendar_lock = asyncio.Lock()
+    entity.async_subscribe_updates = lambda listener: lambda: None
+    victim, keeper = ListItem("a", "Soap", False), ListItem("b", "Soap", False)
+    set_items(entity, victim, keeper)
+    adapter = NativeShoppingList(hass, "todo.local")
+    entity._calendar = SimpleNamespace(
+        todos=[
+            SimpleNamespace(
+                uid=i.uid, summary=i.name, status="NEEDS-ACTION", due=None, description=None
+            )
+            for i in (victim, keeper)
+        ]
+    )
+    assert callable(adapter.subscribe(lambda items: None))
+    expected = await adapter.read()
+    async with entity._calendar_lock:
+        assert not await adapter.remove_if_unchanged(victim, keeper, expected)
+    entity.todo_items[0].description = "Keep this note"
+    assert not await adapter.remove_if_unchanged(victim, keeper, expected)
+    entity.todo_items[0].description = None
+    entity._calendar.todos[0].summary = "Renamed but not published"
+    assert not await adapter.remove_if_unchanged(victim, keeper, expected)
+    entity._calendar.todos[0].summary = "Soap"
+    assert await adapter.remove_if_unchanged(victim, keeper, expected)
+
+
+async def test_unknown_provider_is_refused_even_with_delete_capability(ha_modules):
+    hass, _, registry = ha_modules
+    registry.platform = "unverified_provider"
+    with pytest.raises(UnsupportedList):
+        await NativeShoppingList(hass, "todo.other").read()
 
 
 async def test_adapter_refuses_changed_state_and_non_native_provider(ha_modules):
